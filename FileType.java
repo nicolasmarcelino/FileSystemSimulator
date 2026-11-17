@@ -1,6 +1,8 @@
 import java.time.LocalDateTime;
+import java.io.Serializable;
 
-public abstract class FileType {
+public abstract class FileType implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     protected String nome;
     protected LocalDateTime dataCriacao;

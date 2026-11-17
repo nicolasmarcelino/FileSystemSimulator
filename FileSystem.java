@@ -1,4 +1,6 @@
 import java.util.List;
+import java.io.*;
+
 
 public class FileSystem {
 
@@ -45,5 +47,32 @@ public class FileSystem {
 
     public Diretorio getRoot() {
         return root;
+    }
+
+    public void salvar(String caminhoArquivo) throws IOException {
+        try (ObjectOutputStream out = new ObjectOutputStream(
+                new BufferedOutputStream(new FileOutputStream(caminhoArquivo)))) {
+            out.writeObject(root);
+        }
+    }
+
+    public void carregar(String caminhoArquivo) throws IOException, ClassNotFoundException {
+        try (ObjectInputStream in = new ObjectInputStream(
+                new BufferedInputStream(new FileInputStream(caminhoArquivo)))) {
+            this.root = (Diretorio) in.readObject();
+        }
+    }
+
+    public static FileSystem carregarOuCriar(String caminhoArquivo) {
+        FileSystem fs = new FileSystem();
+        File f = new File(caminhoArquivo);
+        if (f.exists()) {
+            try {
+                fs.carregar(caminhoArquivo);
+            } catch (IOException | ClassNotFoundException e) {
+                System.out.println("Falha ao carregar, iniciando vazio: " + e.getMessage());
+            }
+        }
+        return fs;
     }
 }

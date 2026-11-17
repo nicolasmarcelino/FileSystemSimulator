@@ -1,9 +1,13 @@
 import java.util.Scanner;
 import java.util.List;
+import java.io.IOException;
 
 public class Shell {
+    private static final String ARQUIVO_DADOS = "filesystem.dat";
+
     public static void main(String[] args) {
-        FileSystem fs = new FileSystem();
+        
+        FileSystem fs = FileSystem.carregarOuCriar(ARQUIVO_DADOS);
         Diretorio atual = fs.getRoot();
         Scanner sc = new Scanner(System.in);
         boolean running = true;
@@ -73,6 +77,11 @@ public class Shell {
                     break;
 
                 case "exit":
+                    try {
+                        fs.salvar(ARQUIVO_DADOS);
+                    } catch (IOException e) {
+                        System.out.println("Erro ao salvar: " + e.getMessage());
+                    }
                     running = false;
                     break;
 
