@@ -1,9 +1,11 @@
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.io.*;
 
 
 public class FileSystem {
-
+    private byte[] mySecretKey = "secret".getBytes(StandardCharsets.UTF_8);
     private Diretorio root;
 
     public FileSystem() {
@@ -50,15 +52,27 @@ public class FileSystem {
     }
 
     public void salvar(String caminhoArquivo) throws IOException {
-        try (ObjectOutputStream out = new ObjectOutputStream(
-                new BufferedOutputStream(new FileOutputStream(caminhoArquivo)))) {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(buffer)) {
             out.writeObject(root);
+        }
+
+        byte[] embaralhado = xor(buffer.toByteArray(), mySecretKey);
+
+        try (FileOutputStream file = new FileOutputStream(caminhoArquivo)) {
+            file.write(embaralhado);
         }
     }
 
     public void carregar(String caminhoArquivo) throws IOException, ClassNotFoundException {
-        try (ObjectInputStream in = new ObjectInputStream(
-                new BufferedInputStream(new FileInputStream(caminhoArquivo)))) {
+        byte[] embaralhado;
+        try (FileInputStream file = new FileInputStream(caminhoArquivo)) {
+            embaralhado = file.readAllBytes();
+        }
+
+        byte[] original = xor(embaralhado, mySecretKey);
+
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(original))) {
             this.root = (Diretorio) in.readObject();
         }
     }
@@ -74,5 +88,12 @@ public class FileSystem {
             }
         }
         return fs;
+    }
+
+    private byte[] xor(byte[] data, byte[] key) {
+        byte[] out = new byte[data.length];
+        for (int i = 0; i < data.length; i++)
+            out[i] = (byte) (data[i] ^ key[i % key.length]);
+        return out;
     }
 }
