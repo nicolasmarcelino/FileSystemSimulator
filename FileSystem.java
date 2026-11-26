@@ -2,6 +2,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.io.*;
+import java.util.Objects;
 
 
 public class FileSystem {
@@ -16,6 +17,15 @@ public class FileSystem {
         if (pai == null) {
             throw new IllegalArgumentException("Diretório pai não pode ser nulo");
         }
+
+        for(FileType ft : pai.getFilhos()){
+            if(ft instanceof Diretorio) continue;
+
+            if(Objects.equals(ft.nome, nome)){
+                throw new IllegalArgumentException("Arquivo existente");
+            }
+        }
+
         Arquivo arquivo = new Arquivo(nome, "");
         pai.adicionar(arquivo);
         return arquivo;
@@ -24,6 +34,14 @@ public class FileSystem {
     public Diretorio criarDiretorio(String nome, Diretorio pai) {
         if (pai == null) {
             throw new IllegalArgumentException("Diretório pai não pode ser nulo");
+        }
+
+        for(FileType ft : pai.getFilhos()){
+            if(ft instanceof Arquivo) continue;
+
+            if(Objects.equals(ft.nome, nome)){
+                throw new IllegalArgumentException("Diretório existente");
+            }
         }
         Diretorio novoDir = new Diretorio(nome);
         pai.adicionar(novoDir);
@@ -89,6 +107,32 @@ public class FileSystem {
         }
         return fs;
     }
+
+    public void aplicar(JournalEntry op){
+        Diretorio pai = this.buscarPorCaminho(op.params()[0]);
+        System.out.println(op.params()[0]);
+        if (pai == null) throw new IllegalStateException("caminho não existe: " + op.params()[0]);
+
+        switch (op.operation()){
+            case "CREATE_DIR"  -> criarDiretorio(op.params()[1], pai);
+            case "CREATE_FILE" -> criarArquivo(op.params()[1], pai);
+            default -> throw new IllegalArgumentException("operação desconhecida: " + op.operation());
+        }
+    }
+
+    public Diretorio buscarPorCaminho(String caminho){
+        String[] partes = caminho.split("/");
+        if (partes.length < 2 || !partes[1].equals(root.getNome())) return root;
+
+        Diretorio atual = root;
+        for (int i = 2; i < partes.length; i++){
+            atual = buscarDiretorioAqui(partes[i], atual);
+            if(atual == null) return null;
+        }
+
+        return atual;
+    }
+
 
     private byte[] xor(byte[] data, byte[] key) {
         byte[] out = new byte[data.length];
