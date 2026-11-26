@@ -3,9 +3,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Journal {
     private int nextId;
@@ -108,12 +109,20 @@ public class Journal {
         }
     }
 
-    public void show(){} // TODO: imprimir o journal vira um comando do shell
+    public List<JournalEntry> getOperationsForReapply(){
+        List<JournalEntry> data = this.createOrLoad();
 
-    // TODO: definir o tipo de retorno
-    // TODO: basicamente metodo para retornar operações de COMMIT para reaplicar
-    public JournalEntry getOperationForReapply(){
-        return null;
+        Set<Integer> commited =  data.stream()
+                .filter((it) -> Objects.equals(it.status(), "COMMIT"))
+                .map(JournalEntry::id)
+                .collect(Collectors.toSet());
+
+        return  data.stream()
+                .filter(
+                        (it) ->
+                                Objects.equals(it.status(), "BEGIN") && commited.contains(it.id())
+                )
+                .toList();
     }
 
     // TODO: definir o tipo de retorno
@@ -122,8 +131,75 @@ public class Journal {
         return null;
     }
 
-    // TODO: Marcador para indicar o salvamento no arquivo de dados
-    public void checkpoint(){}
-    // TODO: apagar valores anteriores ao checkpoint(limpeza dos logs)
-    public void cleanup() {}
+    public void cleanup() throws IOException {
+        new FileOutputStream(DATA_LOG, false).close();
+    }
+
+
+    // PARA IMPRIMIR
+    private String formattedTimestamp(LocalDateTime data){
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        return data.format(format);
+    }
+
+    private static final String COLUMN_GAP = "   ";
+
+    public List<String> show(){
+        List<JournalEntry> data = this.createOrLoad();
+        if (data.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        String[] header = {"ID", "DATA/HORA", "STATUS", "OPERAÇÃO", "PARÂMETROS"};
+        List<String[]> rows = data.stream()
+                .map(it -> new String[]{
+                        String.valueOf(it.id()),
+                        this.formattedTimestamp(it.timestamp()),
+                        it.status(),
+                        it.operation(),
+                        String.join(" ", it.params())
+                })
+                .toList();
+
+        int[] widths = new int[header.length];
+        for (int i = 0; i < header.length; i++) {
+            widths[i] = header[i].length();
+        }
+
+        for (String[] row : rows) {
+            for (int i = 0; i < row.length; i++) {
+                widths[i] = Math.max(widths[i], row[i].length());
+            }
+        }
+
+        List<String> output = new ArrayList<>();
+        output.add(formatRow(header, widths));
+        output.add(separator(widths));
+        for (String[] row : rows) {
+            output.add(formatRow(row, widths));
+        }
+        return output;
+    }
+
+    private String formatRow(String[] columns, int[] widths) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) sb.append(COLUMN_GAP);
+            sb.append(columns[i]);
+            boolean lastColumn = i == columns.length - 1;
+            if (!lastColumn) {
+                sb.repeat(" ", widths[i] - columns[i].length());
+            }
+        }
+        return sb.toString().stripTrailing();
+    }
+
+    private String separator(int[] widths) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < widths.length; i++) {
+            if (i > 0) sb.append(COLUMN_GAP);
+            sb.repeat("─", widths[i]);
+        }
+        return sb.toString();
+    }
 }
