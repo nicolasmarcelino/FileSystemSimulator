@@ -5,6 +5,24 @@ import java.io.IOException;
 public class Shell {
     private static final String ARQUIVO_DADOS = "filesystem.dat";
 
+
+    private static void initialApply(Journal journal, FileSystem fs){
+        List<JournalEntry> operations = journal.getOperationsForReapply();
+
+        if (operations.isEmpty()) return;
+
+        for (JournalEntry op : operations){
+            fs.aplicar(op);
+        }
+
+        try {
+            journal.cleanup();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
     public static void main(String[] args) {
         
         FileSystem fs = FileSystem.carregarOuCriar(ARQUIVO_DADOS);
@@ -12,6 +30,8 @@ public class Shell {
         Diretorio atual = fs.getRoot();
         Scanner sc = new Scanner(System.in);
         boolean running = true;
+
+        initialApply(journal, fs);
 
         System.out.println("Bem-vindo ao sistema de arquivos! Digite 'help' para listar os comandos.");
 
@@ -35,6 +55,15 @@ public class Shell {
                             System.out.println("[ARQUIVO] " + f.getNome());
                         }
                     }
+                }
+
+                case "journal" -> {
+                    List<String> log = journal.show();
+                    if(log.isEmpty()){
+                        System.out.println("Journal Vazio!");
+                        break;
+                    }
+                    log.forEach(System.out::println);
                 }
 
                 case "cd" -> {
@@ -69,7 +98,7 @@ public class Shell {
                         journal.commit(id);
                     } catch (Exception e) {
                         journal.abort(id);
-                        throw e;
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
                     }
                 }
 
@@ -85,7 +114,7 @@ public class Shell {
                         journal.commit(id);
                     } catch (Exception e) {
                         journal.abort(id);
-                        throw e;
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
                     }
                 }
 
@@ -96,6 +125,7 @@ public class Shell {
                 case "exit" -> {
                     try {
                         fs.salvar(ARQUIVO_DADOS);
+                        journal.cleanup();
                     } catch (IOException e) {
                         System.out.println("Erro ao salvar: " + e.getMessage());
                     }
