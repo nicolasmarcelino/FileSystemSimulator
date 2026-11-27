@@ -48,6 +48,46 @@ public class FileSystem {
         return novoDir;
     }
 
+    public void mover(String caminhoAtual, String novoCaminho) {
+        if (caminhoAtual.equals(root.getCaminho())) {
+            throw new IllegalArgumentException("Não é possível renomear o diretório raiz");
+        }
+
+        FileType item = this.buscarItemPorCaminho(caminhoAtual);
+        if (item == null) {
+            throw new IllegalArgumentException("Arquivo ou diretório não encontrado: " + caminhoAtual);
+        }
+
+        int corte = novoCaminho.lastIndexOf('/');
+        String novoPaiCaminho = novoCaminho.substring(0, corte);
+        String novoNome = novoCaminho.substring(corte + 1);
+
+        if (novoNome.isEmpty()) {
+            throw new IllegalArgumentException("Nome de destino inválido: " + novoCaminho);
+        }
+
+        Diretorio pai = item.getPai();
+        if (!novoPaiCaminho.equals(pai.getCaminho())) {
+            throw new UnsupportedOperationException("Mover para outra pasta ainda não é suportado");
+        }
+
+        if (pai.buscar(novoNome) != null) {
+            throw new IllegalArgumentException("Já existe '" + novoNome + "' em " + pai.getCaminho());
+        }
+
+        item.setNome(novoNome);
+    }
+
+    public FileType buscarItemPorCaminho(String caminho) {
+        int corte = caminho.lastIndexOf('/');
+        if (corte <= 0) return null;   // "" ou "/root": não há pai onde procurar
+
+        Diretorio pai = this.buscarPorCaminho(caminho.substring(0, corte));
+        if (pai == null) return null;
+
+        return pai.buscar(caminho.substring(corte + 1));
+    }
+
     public Diretorio buscarDiretorioAqui(String nome, Diretorio pai) {
         if (pai == null) return null;
         for (FileType filho : pai.getFilhos()) {
@@ -108,21 +148,25 @@ public class FileSystem {
         return fs;
     }
 
-    public void aplicar(JournalEntry op){
-        Diretorio pai = this.buscarPorCaminho(op.params()[0]);
-        System.out.println(op.params()[0]);
-        if (pai == null) throw new IllegalStateException("caminho não existe: " + op.params()[0]);
-
-        switch (op.operation()){
-            case "CREATE_DIR"  -> criarDiretorio(op.params()[1], pai);
-            case "CREATE_FILE" -> criarArquivo(op.params()[1], pai);
+    public void aplicar(JournalEntry op) {
+        String[] p = op.params();
+        switch (op.operation()) {
+            case "CREATE_DIR"  -> criarDiretorio(p[1], paiObrigatorio(p[0]));
+            case "CREATE_FILE" -> criarArquivo(p[1], paiObrigatorio(p[0]));
+            case "MOVE"        -> mover(p[0], p[1]);
             default -> throw new IllegalArgumentException("operação desconhecida: " + op.operation());
         }
     }
 
+    private Diretorio paiObrigatorio(String caminho) {
+        Diretorio pai = buscarPorCaminho(caminho);
+        if (pai == null) throw new IllegalStateException("caminho não existe: " + caminho);
+        return pai;
+    }
+
     public Diretorio buscarPorCaminho(String caminho){
         String[] partes = caminho.split("/");
-        if (partes.length < 2 || !partes[1].equals(root.getNome())) return root;
+        if (partes.length < 2 || !partes[1].equals(root.getNome())) return null;
 
         Diretorio atual = root;
         for (int i = 2; i < partes.length; i++){

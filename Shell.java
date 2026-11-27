@@ -118,8 +118,27 @@ public class Shell {
                     }
                 }
 
+                case "mv" -> {
+                    if (parts.length < 3) {
+                        System.out.println("Uso: mv <path do arquivo> <path do arquivo> ");
+                        break;
+                    }
+
+                    String pathAtual = resolverCaminho(parts[1], atual);
+                    String pathNovo = resolverCaminho(parts[2], atual);
+                    int id = journal.begin("MOVE", new String[]{pathAtual, pathNovo});
+
+                    try {
+                        fs.mover(pathAtual, pathNovo);
+                        journal.commit(id);
+                    } catch (Exception e) {
+                        journal.abort(id);
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
+                    }
+                }
+
                 case "help" -> {
-                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, ls, exit");
+                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, ls, journal exit");
                 }
 
                 case "exit" -> {
@@ -139,5 +158,12 @@ public class Shell {
         }
 
         sc.close();
+    }
+
+    private static String resolverCaminho(String caminho, Diretorio atual) {
+        if (caminho.startsWith("/")) {
+            return caminho;
+        }
+        return atual.getCaminho() + "/" + caminho;
     }
 }
