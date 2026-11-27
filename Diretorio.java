@@ -15,8 +15,11 @@ public class Diretorio extends FileType {
         filhos.add(file);
     }
 
-    public boolean remover(String nome) {
-        return filhos.removeIf(f -> f.getNome().equals(nome));
+    public boolean remover(FileType item) {
+        boolean removido = filhos.remove(item);
+        if (removido)
+            item.pai = null;
+        return removido;
     }
 
     public FileType buscar(String nome) {

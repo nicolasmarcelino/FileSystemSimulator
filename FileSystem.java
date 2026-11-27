@@ -98,6 +98,33 @@ public class FileSystem {
         return null;
     }
 
+    public void removerArquivo(String nome, Diretorio pai) {
+        if (pai == null) {
+            throw new IllegalArgumentException("Diretório pai não pode ser nulo");
+        }
+
+        for (FileType ft : pai.getFilhos()) {
+            if (ft instanceof Arquivo && ft.getNome().equals(nome)) {
+                pai.remover(ft);
+                return;
+            }
+        }
+        throw new IllegalArgumentException("Arquivo não encontrado: " + nome);
+    }
+
+    public void removerDiretorio(String nome, Diretorio pai) {
+        if (pai == null) {
+            throw new IllegalArgumentException("Diretório pai não pode ser nulo");
+        }
+
+        Diretorio alvo = buscarDiretorioAqui(nome, pai);
+        if (alvo == null) {
+            throw new IllegalArgumentException("Diretório não encontrado: " + nome);
+        }
+
+        pai.remover(alvo);
+    }
+
     public List<FileType> listar(Diretorio dir) {
         if (dir == null) {
             throw new IllegalArgumentException("Diretório não pode ser nulo");
@@ -154,6 +181,8 @@ public class FileSystem {
             case "CREATE_DIR"  -> criarDiretorio(p[1], paiObrigatorio(p[0]));
             case "CREATE_FILE" -> criarArquivo(p[1], paiObrigatorio(p[0]));
             case "MOVE"        -> mover(p[0], p[1]);
+            case "DELETE_FILE" -> removerArquivo(p[1], paiObrigatorio(p[0]));
+            case "DELETE_DIR"  -> removerDiretorio(p[1], paiObrigatorio(p[0]));
             default -> throw new IllegalArgumentException("operação desconhecida: " + op.operation());
         }
     }
