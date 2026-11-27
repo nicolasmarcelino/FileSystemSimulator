@@ -138,7 +138,7 @@ public class Shell {
                 }
 
                 case "help" -> {
-                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, ls, journal exit");
+                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, mv <path do arquivo> <path do arquivo> (OBS: no momento apenas para alterar nome de diretorios e arquivos), ls, journal exit");
                 }
 
                 case "exit" -> {
