@@ -5,12 +5,33 @@ import java.io.IOException;
 public class Shell {
     private static final String ARQUIVO_DADOS = "filesystem.dat";
 
+
+    private static void initialApply(Journal journal, FileSystem fs){
+        List<JournalEntry> operations = journal.getOperationsForReapply();
+
+        if (operations.isEmpty()) return;
+
+        for (JournalEntry op : operations){
+            fs.aplicar(op);
+        }
+
+        try {
+            journal.cleanup();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
     public static void main(String[] args) {
         
         FileSystem fs = FileSystem.carregarOuCriar(ARQUIVO_DADOS);
+        Journal journal = new Journal();
         Diretorio atual = fs.getRoot();
         Scanner sc = new Scanner(System.in);
         boolean running = true;
+
+        initialApply(journal, fs);
 
         System.out.println("Bem-vindo ao sistema de arquivos! Digite 'help' para listar os comandos.");
 
@@ -25,7 +46,7 @@ public class Shell {
             String cmd = parts[0].toLowerCase();
 
             switch (cmd) {
-                case "ls":
+                case "ls" -> {
                     List<FileType> itens = fs.listar(atual);
                     for (FileType f : itens) {
                         if (f instanceof Diretorio) {
@@ -34,9 +55,18 @@ public class Shell {
                             System.out.println("[ARQUIVO] " + f.getNome());
                         }
                     }
-                    break;
+                }
 
-                case "cd":
+                case "journal" -> {
+                    List<String> log = journal.show();
+                    if(log.isEmpty()){
+                        System.out.println("Journal Vazio!");
+                        break;
+                    }
+                    log.forEach(System.out::println);
+                }
+
+                case "cd" -> {
                     if (parts.length < 2) {
                         System.out.println("Uso: cd <nome do diretório>");
                         break;
@@ -54,42 +84,86 @@ public class Shell {
                     } else {
                         System.out.println("O diretório não existe.");
                     }
-                    break;
+                }
 
-                case "mkdir":
+                case "mkdir" -> {
                     if (parts.length < 2) {
                         System.out.println("Uso: mkdir <nome do diretório>");
                         break;
                     }
-                    fs.criarDiretorio(parts[1], atual);
-                    break;
+                    int id = journal.begin("CREATE_DIR", new String[]{atual.getCaminho(), parts[1]});
 
-                case "touch":
+                    try {
+                        fs.criarDiretorio(parts[1], atual);
+                        journal.commit(id);
+                    } catch (Exception e) {
+                        journal.abort(id);
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
+                    }
+                }
+
+                case "touch" -> {
                     if (parts.length < 2) {
                         System.out.println("Uso: touch <nome do arquivo>");
                         break;
                     }
-                    fs.criarArquivo(parts[1], atual);
-                    break;
+                    int id = journal.begin("CREATE_FILE", new String[]{atual.getCaminho(), parts[1]});
 
-                case "help":
-                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, ls, exit");
-                    break;
+                    try {
+                        fs.criarArquivo(parts[1], atual);
+                        journal.commit(id);
+                    } catch (Exception e) {
+                        journal.abort(id);
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
+                    }
+                }
 
-                case "exit":
+                case "mv" -> {
+                    if (parts.length < 3) {
+                        System.out.println("Uso: mv <path do arquivo> <path do arquivo> ");
+                        break;
+                    }
+
+                    String pathAtual = resolverCaminho(parts[1], atual);
+                    String pathNovo = resolverCaminho(parts[2], atual);
+                    int id = journal.begin("MOVE", new String[]{pathAtual, pathNovo});
+
+                    try {
+                        fs.mover(pathAtual, pathNovo);
+                        journal.commit(id);
+                    } catch (Exception e) {
+                        journal.abort(id);
+                        System.out.println("\033[31m" + "Erro: " + e.getMessage() + "\033[0m");
+                    }
+                }
+
+                case "help" -> {
+                    System.out.println("Comandos: touch <nome do arquivo>, mkdir <nome do diretório>, cd <nome do diretório>, ls, journal exit");
+                }
+
+                case "exit" -> {
                     try {
                         fs.salvar(ARQUIVO_DADOS);
+                        journal.cleanup();
                     } catch (IOException e) {
                         System.out.println("Erro ao salvar: " + e.getMessage());
                     }
                     running = false;
-                    break;
+                }
 
-                default:
+                default -> {
                     System.out.println("Comando desconhecido: " + cmd);
+                }
             }
         }
 
         sc.close();
+    }
+
+    private static String resolverCaminho(String caminho, Diretorio atual) {
+        if (caminho.startsWith("/")) {
+            return caminho;
+        }
+        return atual.getCaminho() + "/" + caminho;
     }
 }
